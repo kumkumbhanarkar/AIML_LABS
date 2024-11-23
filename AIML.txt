@@ -1,0 +1,625 @@
+#LAB 1(stat)
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import zscore
+
+data=pd.read_csv('jobs_in_data.csv')
+df=pd.DataFrame(data)
+print("Dataset:\n",df)
+
+df.head()
+df.tail()
+
+# Data Sampling
+from sklearn.model_selection import train_test_split
+# Load your dataset
+data = pd.read_csv('jobs_in_data.csv') # Update path if necessary
+# Split dataset into training and test sets (80% training, 20% testing) 
+train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
+print('training data size: ',train_data.shape)
+print('testing data size: ',test_data.shape)
+
+# Data Scaling
+from sklearn.preprocessing import StandardScaler
+# Assuming your dataset is already Loaded and split into train_data and test_data 
+numerical_columns = ['work_year', 'salary', 'salary_in_usd'] 
+scaler = StandardScaler ()
+# Apply scaling to training data 
+train_data[numerical_columns] = scaler.fit_transform(train_data[numerical_columns])
+# Apply scaling to testing data
+test_data[numerical_columns] = scaler.transform(test_data[numerical_columns])
+print("Sample of scaled numerical data (training set):") 
+print(train_data[numerical_columns].head())
+
+
+from sklearn.preprocessing import LabelEncoder
+import numpy as np
+
+categorical_columns = ['job_title', 'job_category', 'employee_residence', 'experience_level']
+label_encoders = {}
+
+# Encode categorical columns in train and test data 
+for col in categorical_columns:
+    le = LabelEncoder()
+    train_data[col] = le.fit_transform(train_data[col]) 
+    label_encoders[col] = le
+    
+    # Custom transform for test data to handle unseen categories
+    test_data[col] = test_data[col].apply(lambda x: le.transform([x])[0] if x in le.classes_ else -1)
+    
+print("Sample of encoded categorical data (training set):") 
+print(train_data[categorical_columns].head())
+
+print("Descriptive statistics:\n", df.describe())
+
+df['salary_Z'] =zscore(df['salary'])
+print("\nZ-Score for salary:\n", df[['job_title','salary','salary_Z']])
+
+df['log_salary']=np.log(df['salary'])
+print("log transformation of salary:\n", df[['job_title','salary','log_salary']])
+
+
+
+plt.scatter(df['work_year'], df['salary'], color='blue')
+plt.title('work_year vs salary')
+plt.xlabel('work_year')
+plt.ylabel('salary')
+plt.grid(True)
+plt.show()
+
+__________________________________________________________________
+#LAB 2(wrangling)
+import pandas as pd
+df=pd.read_csv('Titanic.csv')
+df.head(10)
+
+#Checking for missing values
+df.isnull().sum()
+
+#Fill missing age values with the mean age
+df['age'].fillna(df['age'].mean(), inplace=True)
+print(df)
+
+#Fill missing Embarked values with the most common value
+df['embarked'].fillna(df['embarked'].mode()[0], inplace=True)
+print(df)
+
+#Verify changes
+df.isnull().sum()
+
+#Handling outliers
+import matplotlib.pyplot as plt
+plt.boxplot(df['fare'])
+plt.title('Boxplot of Fare')
+plt.show()
+
+#Remove outliers using z-score method
+df['fare_zscore']=(df['fare']-df['fare'].mean())/df['fare'].std()
+df_no_outliers=df[df['fare_zscore'].abs()<3]
+
+#Drop the z-score column after removing the outlier
+df_no_outliers.drop(columns=['fare_zscore'], inplace=True)
+print(df)
+
+#Data normalization
+from sklearn.preprocessing import MinMaxScaler
+scaler=MinMaxScaler()
+
+#Normalize the 'fare' and 'age' column
+df[['fare', 'age']] = scaler.fit_transform(df[['fare','age']])
+
+#View the transformed data
+df[['fare', 'age']].head(10)
+
+#Drop columns that are not useful for ml
+df.drop(columns=['class'], inplace=True)
+df.head(10)
+
+
+#Create new feature 'familysize' by adding 'sibsp' and 'parch'
+df['familysize']=df['sibsp']+df['parch']
+df[['sibsp', 'parch', 'familysize']].head(10)
+
+#Convert sex column to numerical (1 for male, 0 for female)
+df['sex']=df['sex'].map({'male':1, 'female':0})
+print(df)
+
+#Convert 'embarked' column to numerical using one-hot encoding 
+df=pd.get_dummies(df, columns=['embarked'])
+print(df)
+
+_____________________________________________________________
+#LAB 3(dfs)
+def is_valid_move(x, y, grid):
+    return 0 <= x < len(grid) and 0 <= y < len(grid[0]) and grid[x][y] == 0
+
+def dfs(grid, x, y, path):
+    # Goal condition
+    if (x, y) == (3, 3):
+        return path
+        
+    # Possible moves (down, up, right, left)
+    moves = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+    for dx, dy in moves:
+        new_x, new_y = x + dx, y + dy
+        if is_valid_move(new_x, new_y, grid):
+            grid[new_x][new_y] = 1  # Mark as visited
+            result = dfs(grid, new_x, new_y, path + [(new_x, new_y)])
+            if result:  # If a path is found
+                return result
+            grid[new_x][new_y] = 0  # Unmark on backtrack
+    return None  # No path found
+
+# 0 = open path, 1 = wall
+grid = [
+    [0, 0, 0, 0],
+    [1, 1, 1, 0],
+    [1, 1, 0, 0],
+    [1, 0, 1, 0]
+]
+
+# Starting DFS from (0, 0)
+grid[0][0] = 1  # Mark starting point as visited 
+path = dfs(grid, 0, 0, [(0, 0)])
+
+# Mark the path in the grid with '*'
+if path:
+    for x, y in path:
+        grid[x][y] = '*'
+
+# Print the grid with the path marked
+print("Grid with path:")
+for row in grid:
+    print(' '.join(str(cell) for cell in row))
+
+print("Path:", path if path else [])
+
+__________________________________________________________________
+#LAB 4(TREE)
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+
+# Create the dataset
+data = pd.read_csv('winequality-dataset_updated.csv')
+
+# Convert to DataFrame
+df = pd.DataFrame(data)
+print(df)
+
+# Features and target variable
+X = df[['pH','sulphates','alcohol','quality']]  # All columns except 'quality' are features
+y = data['quality']  # Target variable
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+print(X_train,X_test,y_train,y_test)
+
+
+# Initialize the Decision Tree classifier
+clf = DecisionTreeClassifier(random_state=42)
+
+# Train the model 
+clf.fit(X_train, y_train)
+
+# Make predictions
+y_pred = clf.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score (y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+class_report = classification_report(y_test, y_pred)
+
+# Output results
+print(f'Accuracy: {accuracy:.2f}')
+print('Confusion Matrix:')
+print(conf_matrix)
+print('Classification Report:')
+print(class_report)
+
+#plot the decision tree
+plt.figure(figsize=(12, 8))
+plot_tree(clf, feature_names=X.columns, class_names=[str(cls) for cls in sorted(y.unique())], filled=True)
+plt.title("Decision Tree Visualization")
+plt.show()
+
+______________________________________________________________
+#LAB 4(forest)
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# Create the dataset
+data = pd.read_csv('Iris Dataset.csv')
+
+# Convert to DataFrame
+df = pd.DataFrame(data)
+print(df)
+
+X = df[['sepal_length','sepal_width','petal_length','petal_width']]  
+y = data['species']  # Target variable
+
+print("Iris Dataset:\n", df.head())
+
+# Split dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+print(X_train, X_test, y_train, y_test)
+
+# Train Random Forest model
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+print(rf)
+
+# Make predictions and evaluate
+y_pred = rf.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(f"\nRandom Forest Accuracy: {accuracy:.2f}")
+
+from sklearn.tree import plot_tree
+import matplotlib.pyplot as plt
+import os
+
+# Create a directory to save all tree visualizations
+os.makedirs("random_forest_trees", exist_ok=True)
+
+# Loop through all trees in the forest and save each as an image
+for i, tree in enumerate(rf.estimators_):
+    plt.figure(figsize=(12, 8))
+    plot_tree(
+        tree,
+        feature_names=X_train.columns.tolist(),
+        filled=True,
+        rounded=True,
+        proportion=True
+    )
+    plt.title(f"Decision Tree {i} in Random Forest")
+    plt.savefig(f"random_forest_trees/tree_{i}.png")
+    plt.close()
+
+print("All trees have been saved to the 'random_forest_trees' directory.")
+
+import matplotlib.pyplot as plt
+from sklearn.tree import plot_tree
+
+# Adjust this parameter to control how many trees to visualize at once
+num_trees_to_display = 5
+
+# Loop through the first few trees in the forest and display them
+for i, tree in enumerate(rf.estimators_[:num_trees_to_display]):
+    plt.figure(figsize=(12, 8))
+    plot_tree(
+        tree,
+        feature_names=X_train.columns.tolist(),
+        filled=True,
+        rounded=True,
+        proportion=True
+    )
+    plt.title(f"Decision Tree {i} in Random Forest")
+    plt.show()
+
+_____________________________________________________________
+#lab 4(svm)
+import pandas as pd
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Create the dataset
+data = pd.read_csv('heart.csv')
+
+# Convert to DataFrame
+df = pd.DataFrame(data)
+print(df)
+
+X = df[['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal']]  
+y = data['target']  # Target variable
+
+print("heart Dataset:\n", df.head())
+
+
+# Split dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Train SVM model
+svm = SVC(kernel='linear', random_state=42)
+svm.fit(X_train, y_train)
+print(svm)
+
+# Make predictions and evaluate
+y_pred = svm.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(f"\nSVM Accuracy: {accuracy:.2f}")
+
+___________________________________________________________
+#lab5(kmeans)
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+
+df = pd.read_csv('E-commerce Customer Behavior - Sheet1.csv')
+print(df)
+
+#Select the features
+X = df[['Age','Total Spend']].values
+print(X)
+
+#create a scatter plot 
+plt.scatter(X[:,0],X[:,1],c="green")
+plt.title('Customer Age and Total Spend')
+plt.xlabel('Age')
+plt.ylabel('Total Spend')
+plt.show()
+
+#create KMeans model with 3 clusters
+kmeans=KMeans(n_clusters=4)
+
+#fit the model to the fruit data
+kmeans.fit(X)
+
+#get the centroids (center points of the cluster) and labels
+centroids=kmeans.cluster_centers_
+labels=kmeans.labels_
+
+#visualize the cluster with different colors
+plt.scatter(X[:,0],X[:,1],c=labels,cmap='rainbow')
+plt.scatter(centroids[:,0],centroids[:,1],s=150,c='green',marker='X')
+plt.title('Customer clusters based on Age and Total Spend')
+plt.xlabel('Age')
+plt.ylabel('Total Spend')
+#plt.legend()
+plt.show()
+______________________________________________________________
+#lab5(knn)
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.neighbors import KNeighborsClassifier
+
+df = pd.read_csv('Iris Dataset.csv')
+print(df)
+
+#Separate features (sepal_length, sepal_width) and labels (species)
+X = df[['sepal_length','sepal_width']].values
+y = df['species'].values
+print('flower data (features):')
+print(X)
+print('flower types (labels):')
+print(y)
+
+#unknown flower data to predict
+unknown_flower1=np.array([[6.3,2]])
+unknown_flower2=np.array([[8,3.4]])
+
+#create KNN classifier
+knn=KNeighborsClassifier(n_neighbors=3)
+
+#train the model
+knn.fit(X,y)
+
+#make a prediction
+prediction=knn.predict(unknown_flower1)
+prediction1=knn.predict(unknown_flower2)
+print(f"the predicted type of the unknown flower is: {prediction[0]}")
+print(f"the predicted type of the unknown flower is: {prediction1[0]}")
+
+#visualize the data and the unknown flowers
+#plot the known flowers
+for flower_type in np.unique(y):
+    plt.scatter(X[y==flower_type,0],X[y==flower_type,1],label=flower_type)
+
+#plot the unknown flower
+plt.scatter(unknown_flower1[0][0],unknown_flower1[0][1],label='unknown flower1',c='black',marker='X',s=100)
+plt.scatter(unknown_flower2[0][0],unknown_flower2[0][1],label='unknown flower2',c='brown',marker='X',s=100)
+plt.title('flower types based on sepal length and width')
+plt.xlabel('sepal_length')
+plt.ylabel('sepal_width')
+plt.legend()
+plt.show()
+________________________________________________________
+#lab6(pca)
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+data=pd.read_csv('marksheet.csv')
+df=pd.DataFrame(data)
+print(df)
+
+# Standardize the features
+X = df[['phy','maths','bio']] 
+scaler=StandardScaler()
+X_scaled=scaler.fit_transform(X)
+X_scaled
+
+# Apply PCA
+pca = PCA(n_components=2)
+X_pca=pca.fit_transform(X_scaled)
+X_pca
+
+# Convert to DataFrame
+df_pca = pd.DataFrame(data=X_pca, columns=['PC1', 'PC2']) 
+df_pca['name'] = df['name']
+df_pca
+
+
+
+# Visualize the PCA results 
+plt.figure(figsize=(8, 6))
+plt.scatter(df_pca['PC1'], df_pca['PC2'], color='blue') 
+for i, name in enumerate(df_pca['name']):
+    plt.annotate(name, (df_pca['PC1'][i], df_pca['PC2'][i]))
+
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.title('PCA on Students Dataset')
+plt.grid()
+plt.show()
+
+# Explained Variance
+print("Explained Variance Ratio:", pca.explained_variance_ratio_)
+_________________________________________________________
+#project
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load the train and test datasets
+train_data = pd.read_csv('train_loan.csv')
+test_data = pd.read_csv('test_loan.csv')
+
+# Display the first few rows of the training dataset
+print("Training Data:")
+print(train_data.head())
+
+print("\nTest Data:")
+print(test_data.head())
+
+
+# Fill missing values in both train and test datasets
+for dataset in [train_data, test_data]:
+    dataset['Gender'].fillna(dataset['Gender'].mode()[0], inplace=True)
+    dataset['Married'].fillna(dataset['Married'].mode()[0], inplace=True)
+    dataset['Dependents'].fillna(dataset['Dependents'].mode()[0], inplace=True)
+    dataset['Self_Employed'].fillna(dataset['Self_Employed'].mode()[0], inplace=True)
+    dataset['Credit_History'].fillna(dataset['Credit_History'].mode()[0], inplace=True)
+    dataset['LoanAmount'].fillna(dataset['LoanAmount'].mean(), inplace=True)
+    dataset['Loan_Amount_Term'].fillna(dataset['Loan_Amount_Term'].mode()[0], inplace=True)
+
+# Replace '3+' in Dependents with 3 for consistency
+for dataset in [train_data, test_data]:
+    dataset['Dependents'] = dataset['Dependents'].replace('3+', 3)
+
+# Encode categorical variables
+train_data = pd.get_dummies(train_data, columns=['Gender', 'Married', 'Education', 'Self_Employed', 'Property_Area', 'Dependents'], drop_first=True)
+test_data = pd.get_dummies(test_data, columns=['Gender', 'Married', 'Education', 'Self_Employed', 'Property_Area', 'Dependents'], drop_first=True)
+
+# Ensure test_data has the same columns as train_data
+missing_cols = set(train_data.columns) - set(test_data.columns)
+for col in missing_cols:
+    test_data[col] = 0  # Add missing columns with 0 values
+
+# Drop Loan_ID column (it's not useful for predictions)
+train_data.drop(['Loan_ID'], axis=1, inplace=True)
+test_data.drop(['Loan_ID'], axis=1, inplace=True)
+
+# Reorder columns of test_data to match train_data
+test_data = test_data[train_data.drop('Loan_Status', axis=1).columns]
+
+print("\nPreprocessed Train Data:")
+print(train_data.head())
+
+print("\nPreprocessed Test Data:")
+print(test_data.head())
+
+
+
+# Define features and target for training
+X = train_data.drop('Loan_Status', axis=1)
+y = train_data['Loan_Status']
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+print(f"Training set size: {X_train.shape}")
+print(f"Testing set size: {X_test.shape}")
+
+# Initialize and train the Decision Tree Classifier
+model = DecisionTreeClassifier(criterion='gini', max_depth=4, random_state=42)
+model.fit(X_train, y_train)
+
+# Visualize the decision tree
+plt.figure(figsize=(20,10))
+plot_tree(model, feature_names=X.columns, class_names=['Not Approved', 'Approved'], filled=True)
+plt.title('Decision Tree Visualization')
+plt.show()
+
+
+# Predict on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+print("Accuracy on test data:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
+# Confusion matrix
+conf_matrix = confusion_matrix(y_test, y_pred)
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['Not Approved', 'Approved'], yticklabels=['Not Approved', 'Approved'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix')
+plt.show()
+
+
+# Ensure model and test_data are correctly defined and loaded
+final_predictions = model.predict(test_data)
+
+# Create the submission DataFrame directly without mapping
+submission = pd.DataFrame({
+    'Loan_ID': pd.read_csv('test_loan.csv')['Loan_ID'],
+    'Loan_Status': final_predictions
+})
+
+# Check the first few rows
+print("\nFirst 10 predictions:")
+print(submission.head(10))
+
+# Save the submission file
+submission.to_csv('loan_predictions.csv', index=False)
+print("\nPredictions saved successfully!")
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# List to store accuracy scores for different depths
+train_accuracies = []
+test_accuracies = []
+
+# Try different depths for the decision tree
+max_depth_range = range(1, 11)
+
+for depth in max_depth_range:
+    model = DecisionTreeClassifier(criterion='gini', max_depth=depth, random_state=42)
+    model.fit(X_train, y_train)
+    
+    # Calculate accuracy for training and testing sets
+    train_accuracy = accuracy_score(y_train, model.predict(X_train))
+    test_accuracy = accuracy_score(y_test, model.predict(X_test))
+    
+    train_accuracies.append(train_accuracy)
+    test_accuracies.append(test_accuracy)
+
+# Plotting the accuracy graph
+plt.figure(figsize=(10, 6))
+plt.plot(max_depth_range, train_accuracies, label='Training Accuracy', marker='o')
+plt.plot(max_depth_range, test_accuracies, label='Testing Accuracy', marker='o')
+plt.xlabel('Max Depth of Decision Tree')
+plt.ylabel('Accuracy')
+plt.title('Accuracy vs Max Depth of Decision Tree')
+plt.legend()
+plt.grid(True)
+plt.show()
+_____________________________________________________________
+
+https://drive.google.com/file/d/1Xi9g8bBkFneSDBw_aZIogkMPz5FsagYp/view?usp=sharing 
+
+https://drive.google.com/file/d/1J7pjJt8QFICaYsp69n13fO7gfkb3SSNv/view?usp=sharing
+__________________________________________________________________
